@@ -1,4 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+const fs = require('fs');
+const path = require('path');
+const { Resvg } = require('C:/Users/alexander/.gemini/antigravity-ide/scratch/node_modules/@resvg/resvg-js');
+
+function buildLogoSvg(transparent = false) {
+  const container = transparent
+    ? ''
+    : '<rect x="24" y="24" width="976" height="976" rx="220" fill="#ffffff" stroke="#e2e8f0" stroke-width="6" />';
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
     <clipPath id="squircle-clip">
       <rect x="24" y="24" width="976" height="976" rx="220" />
@@ -40,9 +49,9 @@
     </filter>
   </defs>
 
-  <rect x="24" y="24" width="976" height="976" rx="220" fill="#ffffff" stroke="#e2e8f0" stroke-width="6" />
+  ${container}
 
-  <g clip-path="url(#squircle-clip)">
+  <g ${transparent ? '' : 'clip-path="url(#squircle-clip)"'}>
     <g transform="translate(512, 512)" filter="url(#subtle-shadow)">
 
       <!-- 1. Hexagonal Architectural Gateway Frame (40px) -->
@@ -169,4 +178,40 @@
 
     </g>
   </g>
-</svg>
+</svg>`;
+}
+
+function render() {
+  const svg = buildLogoSvg(false);
+  const svgTransparent = buildLogoSvg(true);
+  const outDir = path.join(__dirname, '..', 'docs', 'images');
+  fs.mkdirSync(outDir, { recursive: true });
+
+  const svgPath = path.join(outDir, 'logo.svg');
+  const png1024 = path.join(outDir, 'logo-1024.png');
+  const pngPath = path.join(outDir, 'logo.png');
+  const png256 = path.join(outDir, 'logo-256.png');
+  const png128 = path.join(outDir, 'logo-128.png');
+  const png32 = path.join(outDir, 'logo-32.png');
+  const pngTransparent = path.join(outDir, 'logo-transparent.png');
+
+  fs.writeFileSync(svgPath, svg, 'utf-8');
+
+  // Render 1024x1024
+  const resvg1024 = new Resvg(svg, { fitTo: { mode: 'width', value: 1024 } });
+  const buf1024 = resvg1024.render().asPng();
+  fs.writeFileSync(pngPath, buf1024);
+  fs.writeFileSync(png1024, buf1024);
+
+  // Render sizes
+  fs.writeFileSync(png256, new Resvg(svg, { fitTo: { mode: 'width', value: 256 } }).render().asPng());
+  fs.writeFileSync(png128, new Resvg(svg, { fitTo: { mode: 'width', value: 128 } }).render().asPng());
+  fs.writeFileSync(png32, new Resvg(svg, { fitTo: { mode: 'width', value: 32 } }).render().asPng());
+
+  // Transparent
+  fs.writeFileSync(pngTransparent, new Resvg(svgTransparent, { fitTo: { mode: 'width', value: 1024 } }).render().asPng());
+
+  console.log('✓ Rendered all TraceWeaver logo assets (1024, 256, 128, 32, transparent)');
+}
+
+render();
