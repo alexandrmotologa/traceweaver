@@ -9,209 +9,155 @@ function buildLogoSvg(transparent = false) {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <clipPath id="squircle-clip">
+    <clipPath id="squircle-clip-tw">
       <rect x="24" y="24" width="976" height="976" rx="220" />
     </clipPath>
 
-    <!-- Gradients -->
-    <linearGradient id="cyan-glow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="100%" stop-color="#0284c7"/>
-    </linearGradient>
-
-    <linearGradient id="amber-glow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fbbf24"/>
-      <stop offset="100%" stop-color="#ea580c"/>
-    </linearGradient>
-
-    <linearGradient id="indigo-glow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#818cf8"/>
-      <stop offset="100%" stop-color="#4f46e5"/>
-    </linearGradient>
-
-    <linearGradient id="slate-dark" x1="0%" y1="0%" x2="0%" y2="100%">
+    <!-- Obsidian & Stealth Slate -->
+    <linearGradient id="tw-body-dark" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#1e293b"/>
-      <stop offset="100%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#090d16"/>
     </linearGradient>
-
-    <linearGradient id="facet-light" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="tw-body-slate" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#334155"/>
       <stop offset="100%" stop-color="#1e293b"/>
     </linearGradient>
 
-    <linearGradient id="facet-highlight" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#475569"/>
-      <stop offset="100%" stop-color="#334155"/>
+    <!-- Golden Weaver Plumage & Beak (Radiant Amber Gold) -->
+    <linearGradient id="tw-gold-bright" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="35%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="tw-gold-deep" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#c2410c"/>
     </linearGradient>
 
-    <filter id="subtle-shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000000" flood-opacity="0.14" />
+    <!-- Electric Cyan Telemetry & Ingress Stream -->
+    <linearGradient id="tw-cyan-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="45%" stop-color="#00f5ff"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="tw-cyan-deep" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#075985"/>
+    </linearGradient>
+
+    <!-- Deep Cobalt / Worker Stream -->
+    <linearGradient id="tw-cobalt-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+
+    <!-- Luxury Volumetric Drop Shadow -->
+    <filter id="tw-shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="22" stdDeviation="26" flood-color="#090d16" flood-opacity="0.15" />
     </filter>
   </defs>
 
   ${container}
 
-  <g ${transparent ? '' : 'clip-path="url(#squircle-clip)"'}>
-    <g transform="translate(512, 512)" filter="url(#subtle-shadow)">
+  <g ${transparent ? '' : 'clip-path="url(#squircle-clip-tw)"'}>
+    <g transform="translate(512, 512) scale(1.06) translate(-512, -512)" filter="url(#tw-shadow)">
 
-      <!-- 1. Hexagonal Architectural Gateway Frame (40px) -->
-      <polygon points="
-        0,-390
-        338,-195
-        338,195
-        0,390
-        -338,195
-        -338,-195
-      " fill="none" stroke="#0f172a" stroke-width="40" stroke-linejoin="round" />
+      <!-- Causal Trace Stitch Vector (Background Conduit with telemetry nodes) -->
+      <g stroke="#cbd5e1" stroke-width="3.5" stroke-dasharray="8,10" opacity="0.75">
+        <line x1="180" y1="720" x2="830" y2="300" />
+      </g>
+      <!-- Telemetry Nodes on Trace Line -->
+      <circle cx="180" cy="720" r="6.5" fill="#0284c7" />
+      <circle cx="830" cy="300" r="6.5" fill="#f59e0b" />
 
-      <!-- Inner Dashed Telemetry Gateway -->
-      <polygon points="
-        0,-355
-        307,-177
-        307,177
-        0,355
-        -307,177
-        -307,-177
-      " fill="none" stroke="#38bdf8" stroke-width="4" opacity="0.45" stroke-dasharray="16, 12" />
+      <!-- ================= THE CAUSAL WEAVER (HERALDIC PROFILE) ================= -->
 
-      <!-- 2. The Weaver Mascot (Geometric Avian Weaver / Architect of Causal Traces) -->
-      
-      <!-- Outer Body Silhouette -->
-      <path d="
-        M 0,-330
-        L 45,-260
-        L 85,-220
-        L 180,-140
-        L 275,-40
-        L 290,60
-        L 225,120
-        L 250,220
-        L 180,260
-        L 110,310
-        L 0,355
-        L -110,310
-        L -180,260
-        L -250,220
-        L -225,120
-        L -290,60
-        L -275,-40
-        L -180,-140
-        L -85,-220
-        L -45,-260
-        Z
-      " fill="url(#slate-dark)" stroke="#0f172a" stroke-width="6" stroke-linejoin="round" />
+      <!-- 1. Weaver Crown Crest (Sharp Golden Plume) -->
+      <polygon points="420,210 530,150 580,230 470,270" fill="url(#tw-gold-bright)" />
+      <polygon points="530,150 610,200 580,230" fill="url(#tw-gold-deep)" />
 
-      <!-- Wing Timeline Tiers - Left Wing (Ingress Spans) -->
-      <polygon points="-85,-220 -180,-140 -150,-80 -70,-130" fill="url(#facet-light)" stroke="#0f172a" stroke-width="3" />
-      <polygon points="-180,-140 -275,-40 -210,10 -150,-80" fill="#1e293b" stroke="#0f172a" stroke-width="3" />
-      <polygon points="-275,-40 -290,60 -225,120 -210,10" fill="#0f172a" stroke="#0f172a" stroke-width="3" />
-      <polygon points="-210,10 -225,120 -160,150 -140,40" fill="url(#facet-light)" stroke="#0f172a" stroke-width="3" />
+      <!-- 2. Nape & Upper Crest Hood (Deep Obsidian & Slate) -->
+      <polygon points="320,330 420,210 470,270 380,380" fill="url(#tw-body-dark)" />
+      <polygon points="250,410 320,330 380,380 300,470" fill="url(#tw-body-slate)" />
 
-      <!-- Left Wing Ingress Thread Conduit (Cyan) -->
-      <polygon points="-265,-20 -275,40 -220,80 -210,20" fill="url(#cyan-glow)" opacity="0.9" />
+      <!-- 3. Forehead & Facial Mask (Obsidian Predator Mask) -->
+      <polygon points="470,270 580,230 650,320 530,350" fill="url(#tw-body-dark)" />
 
-      <!-- Wing Timeline Tiers - Right Wing (Egress Spans) -->
-      <polygon points="85,-220 180,-140 150,-80 70,-130" fill="url(#facet-highlight)" stroke="#0f172a" stroke-width="3" />
-      <polygon points="180,-140 275,-40 210,10 150,-80" fill="url(#facet-light)" stroke="#0f172a" stroke-width="3" />
-      <polygon points="275,-40 290,60 225,120 210,10" fill="#1e293b" stroke="#0f172a" stroke-width="3" />
-      <polygon points="210,10 225,120 160,150 140,40" fill="#0f172a" stroke="#0f172a" stroke-width="3" />
+      <!-- 4. The Weaver Needle Beak (Conical, Razor-Sharp Gold Mandibles) -->
+      <!-- Upper Mandible (High-specular gold) -->
+      <polygon points="650,320 800,370 660,415 620,370" fill="url(#tw-gold-bright)" />
+      <!-- Lower Mandible (Deep amber shadow) -->
+      <polygon points="660,415 800,370 735,435 630,425" fill="url(#tw-gold-deep)" />
 
-      <!-- Right Wing Worker Thread Conduit (Indigo/Purple) -->
-      <polygon points="265,-20 275,40 220,80 210,20" fill="url(#indigo-glow)" opacity="0.9" />
+      <!-- 5. Causal Thread Woven Through Beak (The Stitched Trace Fiber) -->
+      <path d="M 800,370 Q 860,395 835,450 T 735,435" fill="none" stroke="#00f5ff" stroke-width="4.5" stroke-linecap="round" />
+      <circle cx="848" cy="415" r="5" fill="#00f5ff" />
+      <circle cx="848" cy="415" r="2.5" fill="#ffffff" />
 
-      <!-- Head Crest & Forehead -->
-      <polygon points="0,-330 45,-260 0,-210 -45,-260" fill="url(#facet-highlight)" stroke="#0f172a" stroke-width="3" />
-      <polygon points="0,-330 0,-210 -45,-260" fill="url(#facet-light)" />
-      <polygon points="0,-210 50,-160 0,-110 -50,-160" fill="url(#facet-highlight)" stroke="#0f172a" stroke-width="3" />
+      <!-- 6. Acute Causal Lens Eye (Rhomboid with Cyan Core & Specular Glint) -->
+      <polygon points="540,335 610,345 575,385 525,370" fill="#090d16" />
+      <polygon points="550,340 600,348 573,378 533,367" fill="url(#tw-cyan-glow)" />
+      <polygon points="562,347 590,353 572,372 550,363" fill="#090d16" />
+      <circle cx="578" cy="357" r="3.5" fill="#ffffff" />
 
-      <!-- Cheeks & Temples -->
-      <polygon points="-45,-260 -85,-220 -70,-130 -50,-160" fill="#0f172a" stroke="#0f172a" stroke-width="3" />
-      <polygon points="45,-260 85,-220 70,-130 50,-160" fill="url(#facet-light)" stroke="#0f172a" stroke-width="3" />
+      <!-- 7. Cheek & Throat Keel (Brilliant Pure White Contrast Shield) -->
+      <polygon points="380,380 530,350 620,370 630,425 580,515 460,525" fill="#ffffff" />
 
-      <!-- Eyes (Acute Causal Observability Lenses) -->
-      <!-- Left Eye -->
-      <polygon points="-65,-185 -30,-175 -40,-160 -75,-170" fill="url(#cyan-glow)" stroke="#38bdf8" stroke-width="2" />
-      <circle cx="-50" cy="-172" r="3.5" fill="#ffffff" />
+      <!-- 8. Wing Blade 1 - Critical Path Flow (Radiant Golden Amber - Top Feather) -->
+      <polygon points="580,515 755,465 695,615 535,605 460,525" fill="url(#tw-gold-bright)" />
+      <polygon points="695,615 755,465 785,515 715,635" fill="url(#tw-gold-deep)" />
 
-      <!-- Right Eye -->
-      <polygon points="65,-185 30,-175 40,-160 75,-170" fill="url(#cyan-glow)" stroke="#38bdf8" stroke-width="2" />
-      <circle cx="50" cy="-172" r="3.5" fill="#ffffff" />
+      <!-- 9. Wing Blade 2 - Ingress & Stream Channel (Electric Cyan Flow - Mid Feather) -->
+      <polygon points="535,605 695,615 625,725 455,675" fill="url(#tw-cyan-glow)" />
+      <polygon points="625,725 695,615 715,635 645,745" fill="url(#tw-cyan-deep)" />
 
-      <!-- Precision Sculpted Beak (The Thread Weaver / Needle) -->
-      <polygon points="0,-110 -25,-125 0,-40" fill="#d97706" stroke="#0f172a" stroke-width="2" />
-      <polygon points="0,-110 25,-125 0,-40" fill="url(#amber-glow)" stroke="#0f172a" stroke-width="2" />
-      <polygon points="0,-40 -12,-65 0,-95 12,-65" fill="#fef08a" />
+      <!-- 10. Wing Blade 3 - Asynchronous Worker Queue (Deep Cobalt - Base Feather) -->
+      <polygon points="455,675 625,725 545,815 375,755" fill="url(#tw-cobalt-glow)" />
+      <polygon points="545,815 625,725 645,745 565,830" fill="#1e3a8a" />
 
-      <!-- 3. Causal Loom Chest Armor (Negative Space & Thread Bridges) -->
-      <!-- Left Pectoral -->
-      <polygon points="0,-40 -50,-10 -120,40 -140,120 -60,130 0,60" fill="url(#facet-light)" stroke="#0f172a" stroke-width="4" stroke-linejoin="round" />
-      
-      <!-- Right Pectoral -->
-      <polygon points="0,-40 50,-10 120,40 140,120 60,130 0,60" fill="url(#facet-highlight)" stroke="#0f172a" stroke-width="4" stroke-linejoin="round" />
+      <!-- 11. Breast Armor & Lower Body Keel (Obsidian Base) -->
+      <polygon points="300,470 380,380 460,525 455,675 375,755 295,655" fill="url(#tw-body-dark)" />
+      <polygon points="295,655 375,755 335,835 245,765" fill="url(#tw-body-slate)" />
 
-      <!-- Center Heraldic Sternum Diamond (The Correlation Knot) -->
-      <polygon points="0,60 -60,130 0,220 60,130" fill="#1e293b" stroke="#0f172a" stroke-width="4" stroke-linejoin="round" />
-      <polygon points="0,60 0,220 60,130" fill="url(#facet-light)" />
-
-      <!-- Woven Thread Interlock (Asynchronous Causal Stitch) -->
-      <!-- Ingress Thread (Cyan) entering left of knot -->
-      <path d="M -80,100 L -30,130 L 0,110" fill="none" stroke="#38bdf8" stroke-width="6" stroke-linecap="round" />
-      
-      <!-- Queue Dwell Time Center Indicator (Glowing Amber Diamond) -->
-      <polygon points="0,115 -18,140 0,165 18,140" fill="url(#amber-glow)" stroke="#ea580c" stroke-width="2" />
-
-      <!-- Outbox / Worker Egress Thread (Indigo) leaving right of knot -->
-      <path d="M 0,170 L 30,150 L 80,180" fill="none" stroke="#818cf8" stroke-width="6" stroke-linecap="round" />
-
-      <!-- Lower Flanks & Tail Plumes (Waterfall Cascade) -->
-      <polygon points="-60,130 -140,120 -160,150 -180,260 -100,280 0,220" fill="#0b0f19" stroke="#0f172a" stroke-width="4" stroke-linejoin="round" />
-      <polygon points="60,130 140,120 160,150 180,260 100,280 0,220" fill="#1e293b" stroke="#0f172a" stroke-width="4" stroke-linejoin="round" />
-
-      <!-- Waterfall Tail Center Plume -->
-      <polygon points="0,220 -50,260 0,355 50,260" fill="#0f172a" stroke="#0f172a" stroke-width="4" stroke-linejoin="round" />
-      <polygon points="0,220 0,355 50,260" fill="url(#facet-light)" />
-
-      <!-- Tail Telemetry Anchors -->
-      <circle cx="-35" cy="275" r="4" fill="#38bdf8" />
-      <circle cx="0" cy="305" r="4" fill="#fbbf24" />
-      <circle cx="35" cy="275" r="4" fill="#818cf8" />
+      <!-- 12. Central Causal Correlation Knot (DuckDB Engine Core Token) -->
+      <circle cx="510" cy="490" r="16" fill="#090d16" />
+      <circle cx="510" cy="490" r="11" fill="url(#tw-cyan-glow)" />
+      <circle cx="510" cy="490" r="5" fill="#ffffff" />
 
     </g>
   </g>
 </svg>`;
 }
 
-function render() {
-  const svg = buildLogoSvg(false);
+function renderAll() {
+  const imagesDir = path.join(__dirname, '..', 'docs', 'images');
+  fs.mkdirSync(imagesDir, { recursive: true });
+
+  const svgStandard = buildLogoSvg(false);
   const svgTransparent = buildLogoSvg(true);
-  const outDir = path.join(__dirname, '..', 'docs', 'images');
-  fs.mkdirSync(outDir, { recursive: true });
 
-  const svgPath = path.join(outDir, 'logo.svg');
-  const png1024 = path.join(outDir, 'logo-1024.png');
-  const pngPath = path.join(outDir, 'logo.png');
-  const png256 = path.join(outDir, 'logo-256.png');
-  const png128 = path.join(outDir, 'logo-128.png');
-  const png32 = path.join(outDir, 'logo-32.png');
-  const pngTransparent = path.join(outDir, 'logo-transparent.png');
+  // Write SVGs
+  fs.writeFileSync(path.join(imagesDir, 'logo.svg'), svgStandard);
 
-  fs.writeFileSync(svgPath, svg, 'utf-8');
+  const targets = [
+    { name: 'logo.png', size: 1024, svg: svgStandard },
+    { name: 'logo-1024.png', size: 1024, svg: svgStandard },
+    { name: 'logo-256.png', size: 256, svg: svgStandard },
+    { name: 'logo-128.png', size: 128, svg: svgStandard },
+    { name: 'logo-32.png', size: 32, svg: svgStandard },
+    { name: 'logo-transparent.png', size: 1024, svg: svgTransparent },
+  ];
 
-  // Render 1024x1024
-  const resvg1024 = new Resvg(svg, { fitTo: { mode: 'width', value: 1024 } });
-  const buf1024 = resvg1024.render().asPng();
-  fs.writeFileSync(pngPath, buf1024);
-  fs.writeFileSync(png1024, buf1024);
-
-  // Render sizes
-  fs.writeFileSync(png256, new Resvg(svg, { fitTo: { mode: 'width', value: 256 } }).render().asPng());
-  fs.writeFileSync(png128, new Resvg(svg, { fitTo: { mode: 'width', value: 128 } }).render().asPng());
-  fs.writeFileSync(png32, new Resvg(svg, { fitTo: { mode: 'width', value: 32 } }).render().asPng());
-
-  // Transparent
-  fs.writeFileSync(pngTransparent, new Resvg(svgTransparent, { fitTo: { mode: 'width', value: 1024 } }).render().asPng());
-
-  console.log('✓ Rendered all TraceWeaver logo assets (1024, 256, 128, 32, transparent)');
+  for (const t of targets) {
+    const resvg = new Resvg(t.svg, {
+      fitTo: { mode: 'width', value: t.size },
+      font: { loadSystemFonts: true }
+    });
+    const png = resvg.render().asPng();
+    const dest = path.join(imagesDir, t.name);
+    fs.writeFileSync(dest, png);
+    console.log(`Generated ${t.name} (${t.size}x${t.size}) - ${png.length} bytes`);
+  }
 }
 
-render();
+renderAll();
