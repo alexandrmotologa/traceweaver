@@ -72,4 +72,4 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-ignore = ["B008", "BLE001"]
+ignore = ["B008", "BLE001", "RUF012", "S110"]

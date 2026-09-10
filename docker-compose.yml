@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  traceweaver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: traceweaver
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:8080"  # OTLP HTTP mapped to internal FastAPI port
+      - "8080:8080"  # Web Dashboard
+    environment:
+      - TW_HOST=0.0.0.0
+      - TW_WEB_PORT=8080
+      - TW_GRPC_PORT=4317
+      - TW_DB_PATH=/data/traces.duckdb
+      - TW_MAX_SPANS=100000
+    volumes:
+      - traceweaver-data:/data
+    restart: unless-stopped
+
+volumes:
+  traceweaver-data:
+    driver: local

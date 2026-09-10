@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TraceWeaver — Distributed Trace Correlator &amp; Causal Waterfall</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #070a12;
+      --bg-surface: #0e1424;
+      --bg-surface-elevated: #151d34;
+      --bg-surface-hover: #1c2642;
+      --border: #1e2942;
+      --border-subtle: #162033;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.25);
+      --amber: #f59e0b;
+      --amber-glow: rgba(245, 158, 11, 0.25);
+      --emerald: #10b981;
+      --rose: #f43f5e;
+      --indigo: #6366f1;
+      --purple: #a855f7;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    code, pre, .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Top Navigation Header */
+    header {
+      background-color: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px var(--primary-glow);
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .brand-badge {
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--primary);
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    /* KPI Bar */
+    .kpi-bar {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border);
+      padding: 6px 16px;
+      border-radius: 8px;
+    }
+
+    .kpi-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .kpi-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+    }
+
+    .kpi-val {
+      font-size: 13px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-main);
+    }
+
+    .ws-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--emerald);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .ws-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Main Container Split View */
+    .main-layout {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 58px);
+      overflow: hidden;
+    }
+
+    /* Left Sidebar: Traces List */
+    .traces-sidebar {
+      width: 360px;
+      border-right: 1px solid var(--border);
+      background-color: var(--bg-surface);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-controls {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .search-input {
+      width: 100%;
+      background-color: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: var(--text-main);
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+    }
+
+    .filter-pills {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pill-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .refresh-btn {
+      background-color: var(--bg-surface-elevated);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+
+    .refresh-btn:hover {
+      background-color: var(--bg-surface-hover);
+    }
+
+    .traces-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .trace-card {
+      background-color: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 10px;
+      cursor: pointer;
+      transition: border-color 0.15s, background-color 0.15s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .trace-card:hover {
+      background-color: var(--bg-surface-hover);
+      border-color: var(--border);
+    }
+
+    .trace-card.active {
+      border-color: var(--primary);
+      background-color: rgba(56, 189, 248, 0.08);
+    }
+
+    .trace-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .service-tag {
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--text-main);
+    }
+
+    .dur-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--primary);
+    }
+
+    .dur-badge.error {
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--rose);
+    }
+
+    .trace-card-details {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-dim);
+      font-size: 11px;
+    }
+
+    /* Right Main Panel: Causal Waterfall & Inspector */
+    .waterfall-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background-color: var(--bg-base);
+    }
+
+    .waterfall-header {
+      background-color: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .trace-meta-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .trace-id-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--primary);
+      background: rgba(56, 189, 248, 0.1);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+
+    .metrics-summary {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .dwell-summary-badge {
+      background: rgba(245, 158, 11, 0.12);
+      color: var(--amber);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    /* Waterfall Content View */
+    .waterfall-scroll {
+      flex: 1;
+      overflow: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .timeline-ruler {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      position: sticky;
+      top: 0;
+      background-color: var(--bg-base);
+      z-index: 10;
+    }
+
+    .ruler-tree-col {
+      width: 320px;
+      flex-shrink: 0;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .ruler-ticks {
+      flex: 1;
+      display: flex;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .waterfall-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .span-row {
+      display: flex;
+      align-items: center;
+      height: 36px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.1s;
+    }
+
+    .span-row:hover {
+      background-color: var(--bg-surface-elevated);
+    }
+
+    .span-row.selected {
+      background-color: rgba(56, 189, 248, 0.12);
+    }
+
+    .span-label-col {
+      width: 320px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      padding-right: 12px;
+    }
+
+    .depth-indent {
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .service-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .span-op-name {
+      font-size: 12px;
+      color: var(--text-main);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .span-kind-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: var(--bg-surface-elevated);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+
+    .timeline-bar-col {
+      flex: 1;
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .svg-bar-container {
+      width: 100%;
+      height: 24px;
+      position: relative;
+    }
+
+    .gantt-bar {
+      position: absolute;
+      height: 18px;
+      top: 3px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #fff;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      transition: filter 0.15s;
+    }
+
+    .gantt-bar:hover {
+      filter: brightness(1.2);
+    }
+
+    .gantt-bar.critical {
+      border: 1.5px solid #f43f5e;
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.4);
+    }
+
+    /* Queue Dwell Hatched Bar */
+    .dwell-row {
+      display: flex;
+      align-items: center;
+      height: 30px;
+      background-color: rgba(245, 158, 11, 0.05);
+      border-radius: 4px;
+    }
+
+    .dwell-bar {
+      position: absolute;
+      height: 16px;
+      top: 4px;
+      border-radius: 4px;
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(245, 158, 11, 0.35),
+        rgba(245, 158, 11, 0.35) 6px,
+        rgba(245, 158, 11, 0.15) 6px,
+        rgba(245, 158, 11, 0.15) 12px
+      );
+      border: 1px dashed var(--amber);
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #fde68a;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Bottom Inspector Drawer */
+    .inspector-drawer {
+      height: 220px;
+      border-top: 1px solid var(--border);
+      background-color: var(--bg-surface);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .inspector-header {
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .inspector-body {
+      flex: 1;
+      overflow: auto;
+      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .attr-card {
+      background-color: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+    }
+
+    .attr-card-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .attr-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 2px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .attr-key { color: var(--text-dim); }
+    .attr-val { color: var(--text-main); font-weight: 500; }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-dim);
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand-group">
+      <div class="brand-logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="6" cy="6" r="3"/>
+          <circle cx="18" cy="18" r="3"/>
+          <path d="M6 9v12"/>
+          <path d="M18 9a9 9 0 0 1-9 9"/>
+        </svg>
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="brand-title">TraceWeaver</span>
+          <span class="brand-badge">v0.1.0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-bar" id="kpiBar">
+      <div class="kpi-item">
+        <span class="kpi-label">Stored Spans</span>
+        <span class="kpi-val" id="kpiSpans">0</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">Active Traces</span>
+        <span class="kpi-val" id="kpiTraces">0</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">Services</span>
+        <span class="kpi-val" id="kpiServices">0</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">Avg Latency</span>
+        <span class="kpi-val" id="kpiAvgDur">0ms</span>
+      </div>
+    </div>
+
+    <!-- Live Status -->
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div class="ws-indicator" id="wsStatus">
+        <span class="ws-dot"></span>
+        <span>LIVE TELEMETRY</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main View -->
+  <div class="main-layout">
+    <!-- Left Sidebar: Traces List -->
+    <aside class="traces-sidebar">
+      <div class="sidebar-controls">
+        <input type="text" id="searchInput" class="search-input" placeholder="Filter by service or trace ID..." />
+        <div class="filter-pills">
+          <label class="pill-checkbox">
+            <input type="checkbox" id="errorOnlyCheck" />
+            <span>Errors Only</span>
+          </label>
+          <div style="flex: 1;"></div>
+          <button class="refresh-btn" id="refreshBtn">Refresh</button>
+        </div>
+      </div>
+
+      <div class="traces-list" id="tracesList">
+        <div class="empty-state">
+          <p>Loading traces...</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Right Panel: Causal Waterfall -->
+    <main class="waterfall-panel">
+      <div class="waterfall-header">
+        <div class="trace-meta-title">
+          <span style="font-weight: 600; color: var(--text-muted);">Trace:</span>
+          <span class="trace-id-badge" id="selectedTraceId">None Selected</span>
+        </div>
+        <div class="metrics-summary" id="traceSummaryMetrics" style="display: none;">
+          <div class="dur-badge" id="totalDurationBadge">0.0ms</div>
+          <div class="dwell-summary-badge" id="totalDwellBadge">0.0ms Queue Dwell</div>
+          <span style="color: var(--text-dim); font-size: 11px;" id="spanCountBadge">0 spans</span>
+        </div>
+      </div>
+
+      <div class="waterfall-scroll" id="waterfallContainer">
+        <div class="empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 3v18h18"/>
+            <path d="m19 9-5 5-4-4-3 3"/>
+          </svg>
+          <p>Select a trace from the left panel to view the causal waterfall graph</p>
+        </div>
+      </div>
+
+      <!-- Inspector Drawer -->
+      <div class="inspector-drawer" id="inspectorDrawer" style="display: none;">
+        <div class="inspector-header">
+          <span id="inspectorTitle">Span Details</span>
+          <span class="mono" id="inspectorSpanId" style="color: var(--primary);"></span>
+        </div>
+        <div class="inspector-body" id="inspectorBody">
+          <!-- Dynamically populated cards -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // State management
+    const state = {
+      traces: [],
+      selectedTraceId: null,
+      selectedDag: null,
+      selectedSpan: null,
+      ws: null,
+      serviceColorMap: {}
+    };
+
+    const palette = [
+      '#38bdf8', '#818cf8', '#34d399', '#f59e0b', '#c084fc',
+      '#f43f5e', '#2dd4bf', '#fb923c', '#e879f9', '#4ade80'
+    ];
+
+    function getServiceColor(serviceName) {
+      if (!state.serviceColorMap[serviceName]) {
+        const hash = Array.from(serviceName).reduce((acc, c) => acc + c.charCodeAt(0), 0);
+        state.serviceColorMap[serviceName] = palette[hash % palette.length];
+      }
+      return state.serviceColorMap[serviceName];
+    }
+
+    // Connect WebSocket
+    function initWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/api/v1/ws/traces`;
+      
+      try {
+        state.ws = new WebSocket(wsUrl);
+        state.ws.onopen = () => {
+          document.getElementById('wsStatus').innerHTML = '<span class="ws-dot"></span><span>LIVE TELEMETRY</span>';
+        };
+        state.ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'spans_ingested') {
+              fetchTraces();
+              fetchOverview();
+            }
+          } catch(e) {}
+        };
+        state.ws.onclose = () => {
+          document.getElementById('wsStatus').innerHTML = '<span class="ws-dot" style="background:#f43f5e; box-shadow:none;"></span><span>RECONNECTING...</span>';
+          setTimeout(initWebSocket, 3000);
+        };
+      } catch (err) {
+        setTimeout(initWebSocket, 5000);
+      }
+    }
+
+    // Fetch Overview Stats
+    async function fetchOverview() {
+      try {
+        const res = await fetch('/api/v1/analytics/overview');
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('kpiSpans').textContent = data.total_spans.toLocaleString();
+          document.getElementById('kpiTraces').textContent = data.recent_traces_count.toLocaleString();
+          document.getElementById('kpiServices').textContent = data.active_services_count;
+          document.getElementById('kpiAvgDur').textContent = `${data.avg_trace_duration_ms}ms`;
+        }
+      } catch (err) {}
+    }
+
+    // Fetch Traces List
+    async function fetchTraces() {
+      const search = document.getElementById('searchInput').value.trim();
+      const errorOnly = document.getElementById('errorOnlyCheck').checked;
+
+      let url = `/api/v1/traces?limit=100&error_only=${errorOnly}`;
+      if (search) {
+        url += `&service=${encodeURIComponent(search)}`;
+      }
+
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          state.traces = await res.json();
+          renderTracesList();
+          if (!state.selectedTraceId && state.traces.length > 0) {
+            selectTrace(state.traces[0].trace_id);
+          }
+        }
+      } catch (err) {}
+    }
+
+    function renderTracesList() {
+      const container = document.getElementById('tracesList');
+      if (state.traces.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No traces found</p></div>';
+        return;
+      }
+
+      container.innerHTML = state.traces.map(t => `
+        <div class="trace-card ${t.trace_id === state.selectedTraceId ? 'active' : ''}" onclick="selectTrace('${t.trace_id}')">
+          <div class="trace-card-header">
+            <span class="service-tag" style="color: ${getServiceColor(t.root_service)}">${escapeHtml(t.root_service)}</span>
+            <span class="dur-badge ${t.has_error ? 'error' : ''}">${t.duration_ms}ms</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-main); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${escapeHtml(t.root_name)}
+          </div>
+          <div class="trace-card-details">
+            <span class="mono">${t.trace_id.substring(0, 12)}...</span>
+            <span>${t.span_count} spans • ${t.service_count} services</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Select and render specific Trace DAG
+    async function selectTrace(traceId) {
+      state.selectedTraceId = traceId;
+      document.getElementById('selectedTraceId').textContent = traceId;
+      renderTracesList();
+
+      try {
+        const res = await fetch(`/api/v1/traces/${traceId}`);
+        if (res.ok) {
+          state.selectedDag = await res.json();
+          renderWaterfall();
+        }
+      } catch (err) {}
+    }
+
+    function renderWaterfall() {
+      const dag = state.selectedDag;
+      if (!dag) return;
+
+      document.getElementById('traceSummaryMetrics').style.display = 'flex';
+      document.getElementById('totalDurationBadge').textContent = `${dag.total_duration_ms}ms`;
+      document.getElementById('totalDwellBadge').textContent = `${dag.total_dwell_time_ms}ms Queue Dwell`;
+      document.getElementById('spanCountBadge').textContent = `${dag.span_count} spans`;
+
+      const maxDuration = Math.max(1.0, dag.total_duration_ms);
+      const container = document.getElementById('waterfallContainer');
+
+      let rowsHtml = '';
+      
+      // Flatten hierarchy into ordered visual rows
+      function traverseNode(node) {
+        // First check if there is a queue dwell interval preceding this node
+        if (node.dwell_intervals && node.dwell_intervals.length > 0) {
+          for (const dwell of node.dwell_intervals) {
+            const dwellLeft = (dwell.dwell_time_ms / maxDuration) * 100;
+            // Approximate dwell offset from consumer offset minus dwell duration
+            const offsetLeft = Math.max(0, ((node.offset_ms - dwell.dwell_time_ms) / maxDuration) * 100);
+            const widthPct = Math.max(1.5, (dwell.dwell_time_ms / maxDuration) * 100);
+
+            rowsHtml += `
+              <div class="dwell-row">
+                <div class="span-label-col">
+                  <span class="depth-indent" style="width: ${node.depth * 18}px;"></span>
+                  <span style="color: var(--amber); font-weight: 600; font-size: 11px;">░░ Async Queue</span>
+                  <span style="color: var(--text-dim); font-size: 10px;">(${escapeHtml(dwell.queue_name)})</span>
+                </div>
+                <div class="timeline-bar-col">
+                  <div class="dwell-bar" style="left: ${offsetLeft}%; width: ${widthPct}%;">
+                    QUEUE DWELL: ${dwell.dwell_time_ms}ms
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+        }
+
+        const span = node.span;
+        const leftPct = (node.offset_ms / maxDuration) * 100;
+        const widthPct = Math.max(1.0, (span.duration_ms / maxDuration) * 100);
+        const color = getServiceColor(span.service_name);
+        const isCritical = node.is_critical_path;
+        const isAnomaly = node.is_anomaly;
+
+        rowsHtml += `
+          <div class="span-row" onclick="inspectSpan('${span.span_id}')">
+            <div class="span-label-col">
+              <span class="depth-indent" style="width: ${node.depth * 18}px;"></span>
+              <span class="service-dot" style="background: ${color};"></span>
+              <span class="span-kind-badge">${span.kind}</span>
+              <span class="span-op-name" title="${escapeHtml(span.name)}">${escapeHtml(span.name)}</span>
+              ${isCritical ? '<span title="On Critical Latency Path" style="font-size: 11px;">🔥</span>' : ''}
+              ${isAnomaly ? '<span title="' + escapeHtml(node.anomaly_reason || 'Anomaly') + '" style="font-size: 11px;">⚠️</span>' : ''}
+            </div>
+            <div class="timeline-bar-col">
+              <div class="gantt-bar ${isCritical ? 'critical' : ''}" style="left: ${leftPct}%; width: ${widthPct}%; background-color: ${color};">
+                ${span.duration_ms}ms
+              </div>
+            </div>
+          </div>
+        `;
+
+        for (const child of node.children) {
+          traverseNode(child);
+        }
+      }
+
+      for (const root of dag.root_nodes) {
+        traverseNode(root);
+      }
+
+      container.innerHTML = `
+        <div class="timeline-ruler">
+          <div class="ruler-tree-col">Causal Hierarchy &amp; Services</div>
+          <div class="ruler-ticks">
+            <span>0ms</span>
+            <span>${(maxDuration * 0.25).toFixed(1)}ms</span>
+            <span>${(maxDuration * 0.5).toFixed(1)}ms</span>
+            <span>${(maxDuration * 0.75).toFixed(1)}ms</span>
+            <span>${maxDuration.toFixed(1)}ms</span>
+          </div>
+        </div>
+        <div class="waterfall-rows">
+          ${rowsHtml}
+        </div>
+      `;
+
+      // Auto inspect root span
+      if (dag.root_nodes.length > 0) {
+        inspectSpan(dag.root_nodes[0].span.span_id);
+      }
+    }
+
+    function inspectSpan(spanId) {
+      if (!state.selectedDag) return;
+      
+      // Find span in DAG
+      let targetNode = null;
+      function find(node) {
+        if (node.span.span_id === spanId) {
+          targetNode = node;
+          return;
+        }
+        for (const ch of node.children) find(ch);
+      }
+      for (const root of state.selectedDag.root_nodes) find(root);
+
+      if (!targetNode) return;
+      const s = targetNode.span;
+
+      const drawer = document.getElementById('inspectorDrawer');
+      drawer.style.display = 'flex';
+      document.getElementById('inspectorTitle').textContent = `${s.service_name} : ${s.name}`;
+      document.getElementById('inspectorSpanId').textContent = s.span_id;
+
+      const body = document.getElementById('inspectorBody');
+      
+      let attrsHtml = Object.entries(s.attributes).map(([k, v]) => `
+        <div class="attr-row">
+          <span class="attr-key">${escapeHtml(k)}</span>
+          <span class="attr-val">${escapeHtml(String(v))}</span>
+        </div>
+      `).join('');
+
+      let linksHtml = s.links.map(l => `
+        <div class="attr-row">
+          <span class="attr-key">Linked Span</span>
+          <span class="attr-val mono">${escapeHtml(l.span_id)}</span>
+        </div>
+      `).join('');
+
+      body.innerHTML = `
+        <div class="attr-card">
+          <div class="attr-card-title">Timing &amp; Status</div>
+          <div class="attr-row"><span class="attr-key">Duration</span><span class="attr-val">${s.duration_ms}ms</span></div>
+          <div class="attr-row"><span class="attr-key">Timeline Offset</span><span class="attr-val">${targetNode.offset_ms}ms</span></div>
+          <div class="attr-row"><span class="attr-key">Kind</span><span class="attr-val">${s.kind}</span></div>
+          <div class="attr-row"><span class="attr-key">Status</span><span class="attr-val" style="color:${s.status_code === 'ERROR' ? 'var(--rose)' : 'var(--emerald)'}">${s.status_code}</span></div>
+          <div class="attr-row"><span class="attr-key">Critical Path</span><span class="attr-val">${targetNode.is_critical_path ? 'Yes 🔥' : 'No'}</span></div>
+          ${targetNode.is_anomaly ? `<div class="attr-row"><span class="attr-key">Anomaly</span><span class="attr-val" style="color:var(--amber)">${escapeHtml(targetNode.anomaly_reason || 'Outlier')}</span></div>` : ''}
+        </div>
+
+        <div class="attr-card">
+          <div class="attr-card-title">Span Attributes</div>
+          ${attrsHtml || '<p style="color:var(--text-dim);font-size:11px;">No attributes</p>'}
+        </div>
+
+        <div class="attr-card">
+          <div class="attr-card-title">OpenTelemetry Links &amp; Context</div>
+          ${linksHtml || '<p style="color:var(--text-dim);font-size:11px;">No cross-boundary links</p>'}
+        </div>
+      `;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Event Listeners
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      fetchTraces();
+      fetchOverview();
+    });
+    document.getElementById('searchInput').addEventListener('input', fetchTraces);
+    document.getElementById('errorOnlyCheck').addEventListener('change', fetchTraces);
+
+    // Initial load
+    fetchTraces();
+    fetchOverview();
+    initWebSocket();
+  </script>
+</body>
+</html>
