@@ -47,11 +47,28 @@ class ConnectionManager:
             self.disconnect(s)
 
 
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI application lifespan capturing the active event loop."""
+    app.state.main_loop = asyncio.get_running_loop()
+    yield
+
+
 def create_app(store: TraceStore | None = None) -> FastAPI:
     """Create and configure FastAPI application."""
     app_store = store or TraceStore(db_path=settings.db_path, max_spans=settings.max_spans)
     ws_manager = ConnectionManager()
     correlator = TraceCorrelator()
+
+    app = FastAPI(
+        title="TraceWeaver",
+        description="Distributed Trace Correlator & Causal Event Waterfall Visualizer",
+        version="0.1.0",
+        lifespan=lifespan,
+    )
 
     # Define broadcast callback for incoming spans
     def on_spans_received(spans: list[NormalizedSpan]) -> None:
@@ -62,20 +79,17 @@ def create_app(store: TraceStore | None = None) -> FastAPI:
             "count": len(spans),
             "trace_ids": list({s.trace_id for s in spans}),
         }
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.run_coroutine_threadsafe(ws_manager.broadcast_json(summary_payload), loop)
-        except Exception:
-            pass
+        loop = getattr(app.state, "main_loop", None)
+        if loop is None:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+        if loop and loop.is_running():
+            asyncio.run_coroutine_threadsafe(ws_manager.broadcast_json(summary_payload), loop)
 
     set_trace_store(app_store, broadcast_callback=on_spans_received)
-
-    app = FastAPI(
-        title="TraceWeaver",
-        description="Distributed Trace Correlator & Causal Event Waterfall Visualizer",
-        version="0.1.0",
-    )
 
     app.add_middleware(
         CORSMiddleware,
@@ -92,6 +106,7 @@ def create_app(store: TraceStore | None = None) -> FastAPI:
     app.state.store = app_store
     app.state.ws_manager = ws_manager
     app.state.correlator = correlator
+    app.state.broadcast_callback = on_spans_received
 
     # REST Endpoints
     @app.get("/healthz")
@@ -133,6 +148,36 @@ def create_app(store: TraceStore | None = None) -> FastAPI:
         app.state.correlator.service_stats_map = stats_map
 
         return app.state.correlator.correlate_trace(spans)
+
+    @app.get("/api/v1/traces/{trace_id}/mermaid", response_class=JSONResponse)
+    async def get_trace_mermaid(trace_id: str) -> dict[str, str]:
+        """Export Mermaid sequence diagram definition for a trace."""
+        from traceweaver.engine.mermaid import export_mermaid_sequence
+
+        spans = app_store.get_trace_spans(trace_id)
+        if not spans:
+            raise HTTPException(status_code=404, detail=f"Trace {trace_id} not found")
+        dag = app.state.correlator.correlate_trace(spans)
+        return {"trace_id": trace_id, "mermaid": export_mermaid_sequence(dag)}
+
+    @app.get("/api/v1/diff")
+    async def diff_traces(
+        trace_a: str = Query(..., description="Baseline Trace ID"),
+        trace_b: str = Query(..., description="Comparison Trace ID"),
+    ) -> dict[str, Any]:
+        """Compare two traces and return structured latency and dwell time deltas."""
+        from traceweaver.engine.diff import TraceDiffEngine
+
+        spans_a = app_store.get_trace_spans(trace_a)
+        spans_b = app_store.get_trace_spans(trace_b)
+        if not spans_a:
+            raise HTTPException(status_code=404, detail=f"Trace {trace_a} not found")
+        if not spans_b:
+            raise HTTPException(status_code=404, detail=f"Trace {trace_b} not found")
+
+        engine = TraceDiffEngine(correlator=app.state.correlator)
+        result = engine.compare_traces(spans_a, spans_b)
+        return result.model_dump()
 
     @app.get("/api/v1/analytics/services", response_model=list[ServiceStats])
     async def get_service_analytics() -> list[ServiceStats]:

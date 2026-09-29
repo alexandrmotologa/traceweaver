@@ -21,6 +21,7 @@ class WaterfallScreen(Screen):
     BINDINGS = [
         Binding("escape", "app.pop_screen", "Back to Traces"),
         Binding("r", "refresh_dag", "Refresh"),
+        Binding("p", "jump_critical_path", "Critical Path"),
     ]
 
     def __init__(self, trace_id: str, store: TraceStore):
@@ -148,3 +149,16 @@ class WaterfallScreen(Screen):
             f"[dim]Attributes:[/]\n{attrs_formatted}"
         )
         panel_widget.update(Panel(content, title="Span Inspector", border_style="blue"))
+
+    def action_jump_critical_path(self) -> None:
+        """Jump cursor to the first critical path node in the waterfall table."""
+        if not self.dag or not self.dag.critical_path_span_ids:
+            return
+        first_cp_id = self.dag.critical_path_span_ids[0]
+        table = self.query_one("#waterfall_table", DataTable)
+        for row_index, row_key in enumerate(table.rows):
+            if str(row_key.value) == first_cp_id:
+                table.move_cursor(row=row_index)
+                if first_cp_id in self.node_by_span_id:
+                    self.display_span_detail(self.node_by_span_id[first_cp_id].span)
+                break

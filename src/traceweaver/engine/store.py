@@ -270,8 +270,8 @@ class TraceStore:
         query = """
             SELECT
                 trace_id,
-                FIRST(service_name) AS root_service,
-                FIRST(name) AS root_name,
+                ARG_MIN(service_name, start_time_ns) AS root_service,
+                ARG_MIN(name, start_time_ns) AS root_name,
                 MIN(start_time_ns) AS start_time_ns,
                 ROUND((MAX(end_time_ns) - MIN(start_time_ns)) / 1000000.0, 2) AS duration_ms,
                 COUNT(*) AS span_count,

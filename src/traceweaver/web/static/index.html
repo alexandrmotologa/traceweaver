@@ -583,6 +583,86 @@
       color: var(--text-dim);
       gap: 8px;
     }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-content {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 650px;
+      max-width: 90vw;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .modal-body {
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .modal-footer {
+      padding: 10px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .code-preview {
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      color: var(--text-main);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      max-height: 380px;
+    }
+
+    .diff-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .diff-kpi-card {
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -669,6 +749,8 @@
           <div class="dur-badge" id="totalDurationBadge">0.0ms</div>
           <div class="dwell-summary-badge" id="totalDwellBadge">0.0ms Queue Dwell</div>
           <span style="color: var(--text-dim); font-size: 11px;" id="spanCountBadge">0 spans</span>
+          <button class="refresh-btn" onclick="openMermaidModal()">Mermaid</button>
+          <button class="refresh-btn" onclick="openDiffModal()">Compare</button>
         </div>
       </div>
 
@@ -989,6 +1071,99 @@
         .replace(/"/g, '&quot;');
     }
 
+    // Modal & Diff Logic
+    async function openMermaidModal() {
+      if (!state.selectedTraceId) return;
+      try {
+        const res = await fetch(`/api/v1/traces/${state.selectedTraceId}/mermaid`);
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('mermaidContent').textContent = data.mermaid;
+          document.getElementById('mermaidModal').style.display = 'flex';
+        }
+      } catch (err) {}
+    }
+
+    function copyMermaid() {
+      const code = document.getElementById('mermaidContent').textContent;
+      navigator.clipboard.writeText(code);
+      alert('Mermaid sequence diagram copied to clipboard!');
+    }
+
+    function openDiffModal() {
+      if (!state.selectedTraceId) return;
+      const select = document.getElementById('diffTargetSelect');
+      select.innerHTML = state.traces
+        .filter(t => t.trace_id !== state.selectedTraceId)
+        .map(t => `<option value="${t.trace_id}">${t.root_service} : ${t.root_name} (${t.duration_ms}ms) - ${t.trace_id.substring(0, 10)}...</option>`)
+        .join('');
+      document.getElementById('diffBaselineBadge').textContent = state.selectedTraceId.substring(0, 12) + '...';
+      document.getElementById('diffResultPanel').innerHTML = '<p style="color:var(--text-dim);font-size:12px;">Select a comparison trace and click Run Diff.</p>';
+      document.getElementById('diffModal').style.display = 'flex';
+    }
+
+    async function runDiffComparison() {
+      const targetId = document.getElementById('diffTargetSelect').value;
+      if (!targetId || !state.selectedTraceId) return;
+
+      try {
+        const res = await fetch(`/api/v1/diff?trace_a=${state.selectedTraceId}&trace_b=${targetId}`);
+        if (res.ok) {
+          const diff = await res.json();
+          const deltaSign = diff.duration_delta_ms > 0 ? '+' : '';
+          const deltaCol = diff.duration_delta_ms > 0 ? 'var(--rose)' : 'var(--emerald)';
+
+          let svcRows = diff.services.map(s => `
+            <div class="attr-row">
+              <span class="attr-key">${escapeHtml(s.service_name)}</span>
+              <span class="attr-val" style="color:${s.delta_ms > 0 ? 'var(--rose)' : 'var(--emerald)'}">
+                ${s.delta_ms > 0 ? '+' : ''}${s.delta_ms}ms (${s.duration_a_ms}ms vs ${s.duration_b_ms}ms)
+              </span>
+            </div>
+          `).join('');
+
+          let queueRows = diff.queues.map(q => `
+            <div class="attr-row">
+              <span class="attr-key">░░ ${escapeHtml(q.queue_name)}</span>
+              <span class="attr-val" style="color:${q.delta_ms > 0 ? 'var(--amber)' : 'var(--emerald)'}">
+                ${q.delta_ms > 0 ? '+' : ''}${q.delta_ms}ms dwell delta
+              </span>
+            </div>
+          `).join('');
+
+          document.getElementById('diffResultPanel').innerHTML = `
+            <div class="diff-kpi-grid">
+              <div class="diff-kpi-card">
+                <div class="attr-key">Duration Delta</div>
+                <div style="font-size: 14px; font-weight: 700; color: ${deltaCol};">${deltaSign}${diff.duration_delta_ms}ms</div>
+              </div>
+              <div class="diff-kpi-card">
+                <div class="attr-key">Queue Dwell Delta</div>
+                <div style="font-size: 14px; font-weight: 700; color: var(--amber);">${diff.dwell_delta_ms > 0 ? '+' : ''}${diff.dwell_delta_ms}ms</div>
+              </div>
+              <div class="diff-kpi-card">
+                <div class="attr-key">Spans Delta</div>
+                <div style="font-size: 14px; font-weight: 700; color: var(--text-main);">${diff.span_count_b - diff.span_count_a}</div>
+              </div>
+            </div>
+            <div class="attr-card" style="margin-bottom: 10px; border-left: 3px solid var(--amber);">
+              <div class="attr-card-title">Primary Bottleneck Diagnostic</div>
+              <p style="color: #fff; font-size: 12px; font-weight: 600;">${escapeHtml(diff.primary_bottleneck)}</p>
+            </div>
+            <div class="attr-card">
+              <div class="attr-card-title">Service Latency Divergence</div>
+              ${svcRows || '<p style="color:var(--text-dim);font-size:11px;">Identical service timings</p>'}
+            </div>
+            ${queueRows ? `<div class="attr-card" style="margin-top: 10px;"><div class="attr-card-title">Queue Dwell Divergence</div>${queueRows}</div>` : ''}
+          `;
+        }
+      } catch (err) {}
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
     // Event Listeners
     document.getElementById('refreshBtn').addEventListener('click', () => {
       fetchTraces();
@@ -1002,5 +1177,48 @@
     fetchOverview();
     initWebSocket();
   </script>
+
+  <!-- Mermaid Export Modal -->
+  <div class="modal-overlay" id="mermaidModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>Mermaid Sequence Diagram</span>
+        <button class="refresh-btn" onclick="closeModal('mermaidModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); font-size: 11px;">Generated Mermaid definition representing causal execution flow and message broker dwell times:</p>
+        <pre class="code-preview" id="mermaidContent"></pre>
+      </div>
+      <div class="modal-footer">
+        <button class="refresh-btn" onclick="copyMermaid()">Copy to Clipboard</button>
+        <button class="refresh-btn" onclick="closeModal('mermaidModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trace Diff Modal -->
+  <div class="modal-overlay" id="diffModal">
+    <div class="modal-content" style="width: 720px;">
+      <div class="modal-header">
+        <span>Causal Trace Regression Diff</span>
+        <button class="refresh-btn" onclick="closeModal('diffModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="color: var(--text-muted);">Baseline (Trace A):</span>
+          <span class="mono" id="diffBaselineBadge" style="color: var(--primary);"></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="color: var(--text-muted); white-space: nowrap;">Compare With (Trace B):</span>
+          <select id="diffTargetSelect" class="search-input" style="flex: 1;"></select>
+          <button class="refresh-btn" onclick="runDiffComparison()" style="background: var(--primary); color: #000;">Run Diff</button>
+        </div>
+        <div id="diffResultPanel" style="margin-top: 10px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="refresh-btn" onclick="closeModal('diffModal')">Close</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

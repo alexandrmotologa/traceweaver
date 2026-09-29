@@ -59,7 +59,10 @@ def serve(
     fastapi_app = create_app(store)
 
     async def run_servers() -> None:
-        grpc_server = await start_grpc_server(store=store, host=host, port=grpc_port)
+        callback = getattr(fastapi_app.state, "broadcast_callback", None)
+        grpc_server = await start_grpc_server(
+            store=store, host=host, port=grpc_port, broadcast_callback=callback
+        )
         config = uvicorn.Config(app=fastapi_app, host=host, port=web_port, log_level="info")
         server = uvicorn.Server(config)
         try:
@@ -194,9 +197,12 @@ def demo(
 @app.command()
 def analyze(
     trace_id: str = typer.Argument(..., help="Trace ID to analyze"),
+    format: str = typer.Option(
+        "table", "--format", "-f", help="Output format: table, mermaid, json"
+    ),
     db_path: str = typer.Option(settings.db_path, "--db-path", "-d", help="DuckDB database path"),
 ) -> None:
-    """Print ASCII causal waterfall and queue dwell time analysis for a trace."""
+    """Print causal waterfall, Mermaid sequence diagram, or JSON analysis for a trace."""
     store = TraceStore(db_path=db_path)
     spans = store.get_trace_spans(trace_id)
     if not spans:
@@ -205,6 +211,18 @@ def analyze(
 
     correlator = TraceCorrelator()
     dag = correlator.correlate_trace(spans)
+
+    if format.lower() == "json":
+        print(dag.model_dump_json(indent=2))
+        store.close()
+        return
+
+    if format.lower() == "mermaid":
+        from traceweaver.engine.mermaid import export_mermaid_sequence
+
+        print(export_mermaid_sequence(dag))
+        store.close()
+        return
 
     console.print(
         Panel(
@@ -261,6 +279,90 @@ def analyze(
         traverse(r)
 
     console.print(table)
+    store.close()
+
+
+@app.command()
+def diff(
+    trace_a: str = typer.Argument(..., help="Baseline trace ID (Trace A)"),
+    trace_b: str = typer.Argument(..., help="Comparison trace ID (Trace B)"),
+    db_path: str = typer.Option(settings.db_path, "--db-path", "-d", help="DuckDB database path"),
+    json_output: bool = typer.Option(False, "--json", help="Output raw diff JSON"),
+) -> None:
+    """Compare two traces and identify regressions in service latency and queue dwell times."""
+    from traceweaver.engine.diff import TraceDiffEngine
+
+    store = TraceStore(db_path=db_path)
+    spans_a = store.get_trace_spans(trace_a)
+    spans_b = store.get_trace_spans(trace_b)
+
+    if not spans_a:
+        console.print(f"[bold red]Baseline trace {trace_a} not found.[/]")
+        sys.exit(1)
+    if not spans_b:
+        console.print(f"[bold red]Comparison trace {trace_b} not found.[/]")
+        sys.exit(1)
+
+    engine = TraceDiffEngine()
+    result = engine.compare_traces(spans_a, spans_b)
+
+    if json_output:
+        print(result.model_dump_json(indent=2))
+        store.close()
+        return
+
+    delta_color = "red" if result.duration_delta_ms > 0 else "green"
+    sign = "+" if result.duration_delta_ms > 0 else ""
+
+    console.print(
+        Panel(
+            f"[bold cyan]Comparing Trace A ({trace_a[:12]}...) vs Trace B ({trace_b[:12]}...)[/]\n"
+            f"[dim]Duration A:[/]       {result.duration_a_ms}ms\n"
+            f"[dim]Duration B:[/]       {result.duration_b_ms}ms\n"
+            f"[dim]Latency Delta:[/]    [{delta_color}]{sign}{result.duration_delta_ms}ms ({sign}{result.duration_pct_change}%)[/]\n"
+            f"[dim]Queue Dwell Delta:[/] {sign}{result.dwell_delta_ms}ms\n"
+            f"[dim]Primary Bottleneck:[/] [bold yellow]{result.primary_bottleneck}[/]",
+            title="[bold white]Causal Trace Regression Diff[/]",
+            border_style="cyan",
+        )
+    )
+
+    if result.services:
+        svc_table = Table(title="Service-Level Latency Comparison", border_style="dim")
+        svc_table.add_column("Service", style="cyan")
+        svc_table.add_column("Trace A", justify="right")
+        svc_table.add_column("Trace B", justify="right")
+        svc_table.add_column("Delta", justify="right")
+
+        for s in result.services:
+            d_col = "red" if s.delta_ms > 5.0 else ("green" if s.delta_ms < -5.0 else "dim")
+            s_sign = "+" if s.delta_ms > 0 else ""
+            svc_table.add_row(
+                s.service_name,
+                f"{s.duration_a_ms}ms",
+                f"{s.duration_b_ms}ms",
+                f"[{d_col}]{s_sign}{s.delta_ms}ms[/]",
+            )
+        console.print(svc_table)
+
+    if result.queues:
+        q_table = Table(title="Queue Dwell Latency Comparison", border_style="dim")
+        q_table.add_column("Queue Name", style="yellow")
+        q_table.add_column("Trace A Dwell", justify="right")
+        q_table.add_column("Trace B Dwell", justify="right")
+        q_table.add_column("Delta", justify="right")
+
+        for q in result.queues:
+            d_col = "red" if q.delta_ms > 5.0 else ("green" if q.delta_ms < -5.0 else "dim")
+            q_sign = "+" if q.delta_ms > 0 else ""
+            q_table.add_row(
+                q.queue_name,
+                f"{q.dwell_a_ms}ms",
+                f"{q.dwell_b_ms}ms",
+                f"[{d_col}]{q_sign}{q.delta_ms}ms[/]",
+            )
+        console.print(q_table)
+
     store.close()
 
 

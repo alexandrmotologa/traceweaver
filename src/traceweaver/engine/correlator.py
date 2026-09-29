@@ -89,6 +89,9 @@ class TraceCorrelator:
             # Fallback if circular dependency or all have parents
             root_span_ids = [spans[0].span_id]
 
+        # Sort roots chronologically
+        root_span_ids.sort(key=lambda s_id: span_map[s_id].start_time_ns)
+
         # Step 4: Build CausalNode tree recursively
         def build_node(span_id: str, depth: int) -> CausalNode:
             span = span_map[span_id]
@@ -98,11 +101,13 @@ class TraceCorrelator:
             stats = self.service_stats_map.get(span.service_name)
             is_anomaly, reason = self.anomaly_detector.inspect_span(span, stats)
 
-            child_nodes = [
-                build_node(child_id, depth + 1)
-                for child_id in children_map.get(span_id, [])
-                if child_id in span_map
-            ]
+            # Sort children chronologically
+            sorted_child_ids = sorted(
+                [c_id for c_id in children_map.get(span_id, []) if c_id in span_map],
+                key=lambda c_id: span_map[c_id].start_time_ns,
+            )
+
+            child_nodes = [build_node(child_id, depth + 1) for child_id in sorted_child_ids]
 
             return CausalNode(
                 span=span,
@@ -117,24 +122,28 @@ class TraceCorrelator:
 
         root_nodes = [build_node(r_id, 0) for r_id in root_span_ids]
 
-        # Step 5: Critical path analysis (longest weighted path through tree)
+        # Step 5: Critical path analysis (longest weighted path through tree including dwell delays)
         critical_path_ids: list[str] = []
 
         def find_longest_path(node: CausalNode) -> tuple[float, list[str]]:
             if not node.children:
                 return node.span.duration_ms, [node.span.span_id]
 
-            best_child_dur = 0.0
+            best_child_effective_dur = -1.0
             best_child_path: list[str] = []
             for child in node.children:
-                dur, path = find_longest_path(child)
-                if dur > best_child_dur:
-                    best_child_dur = dur
-                    best_child_path = path
+                child_dur, child_path = find_longest_path(child)
+                # Asynchronous queue dwell contributes directly to latency bottleneck
+                dwell_ms = sum(d.dwell_time_ms for d in child.dwell_intervals)
+                effective_dur = child_dur + dwell_ms
+                if effective_dur > best_child_effective_dur:
+                    best_child_effective_dur = effective_dur
+                    best_child_path = child_path
 
-            return node.span.duration_ms + best_child_dur, [node.span.span_id] + best_child_path
+            total_weight = node.span.duration_ms + max(0.0, best_child_effective_dur)
+            return total_weight, [node.span.span_id] + best_child_path
 
-        best_root_dur = 0.0
+        best_root_dur = -1.0
         for r_node in root_nodes:
             dur, path = find_longest_path(r_node)
             if dur > best_root_dur:

@@ -118,3 +118,45 @@ async def test_analytics_endpoints(web_test_app):
     overview = overview_res.json()
     assert overview["total_spans"] == 2
     assert overview["recent_traces_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_mermaid_endpoint(web_test_app):
+    """Verify /api/v1/traces/{trace_id}/mermaid returns sequence diagram."""
+    app, _store = web_test_app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/traces/test_trace_123/mermaid")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["trace_id"] == "test_trace_123"
+    assert "sequenceDiagram" in data["mermaid"]
+
+
+@pytest.mark.asyncio
+async def test_diff_endpoint(web_test_app):
+    """Verify /api/v1/diff compares two traces."""
+    app, store = web_test_app
+    # Insert second trace
+    spans_b = [
+        NormalizedSpan(
+            trace_id="test_trace_456",
+            span_id="span_root_b",
+            name="POST /checkout",
+            service_name="api-gateway",
+            start_time_ns=2_000_000_000_000,
+            end_time_ns=2_000_100_000_000,  # 100ms duration (50ms regression)
+            duration_ms=100.0,
+            status_code="OK",
+        )
+    ]
+    store.insert_spans(spans_b)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/diff?trace_a=test_trace_123&trace_b=test_trace_456")
+    assert res.status_code == 200
+    diff = res.json()
+    assert diff["trace_a_id"] == "test_trace_123"
+    assert diff["trace_b_id"] == "test_trace_456"
+    assert "duration_delta_ms" in diff

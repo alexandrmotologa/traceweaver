@@ -19,12 +19,16 @@ class DwellInterval(BaseModel):
 
 
 def extract_enqueue_timestamp_ns(attributes: dict[str, Any]) -> int | None:
-    """Look for standard enqueue timestamps in span attributes."""
+    """Look for standard enqueue timestamps in span attributes across OpenTelemetry conventions."""
     candidate_keys = [
         "queue_entry_ts",
         "messaging.kafka.message.timestamp",
         "messaging.publish_time",
         "messaging.enqueue_time",
+        "messaging.message.enqueue_time",
+        "messaging.rabbitmq.timestamp",
+        "messaging.sqs.sent_timestamp",
+        "messaging.gcp_pubsub.publish_time",
         "queue.entry_time",
     ]
 
@@ -33,9 +37,16 @@ def extract_enqueue_timestamp_ns(attributes: dict[str, Any]) -> int | None:
         if val is not None:
             try:
                 num = int(val)
-                # If milliseconds (e.g. 13 digits ~ 1700000000000), convert to ns
+                # Unix seconds (e.g. 10 digits ~ 1.7e9)
+                if num < 10_000_000_000:
+                    return num * 1_000_000_000
+                # Unix milliseconds (e.g. 13 digits ~ 1.7e12)
                 if num < 10_000_000_000_000:
                     return num * 1_000_000
+                # Unix microseconds (e.g. 16 digits ~ 1.7e15)
+                if num < 10_000_000_000_000_000:
+                    return num * 1_000
+                # Unix nanoseconds (e.g. 19 digits ~ 1.7e18)
                 return num
             except (ValueError, TypeError):
                 continue
@@ -53,6 +64,8 @@ def extract_queue_name(producer: NormalizedSpan | None, consumer: NormalizedSpan
             "messaging.destination.name",
             "kafka.topic",
             "messaging.kafka.topic",
+            "messaging.rabbitmq.routing_key",
+            "messaging.sqs.queue_name",
             "queue.name",
         ):
             val = s.attributes.get(key)
@@ -65,30 +78,17 @@ def extract_queue_name(producer: NormalizedSpan | None, consumer: NormalizedSpan
 def calculate_dwell_time(
     consumer_span: NormalizedSpan,
     producer_span: NormalizedSpan | None = None,
+    clock_skew_tolerance_ms: float = 5.0,
 ) -> DwellInterval | None:
     """Calculate asynchronous queue dwell time between message production and consumption.
 
-    Returns a DwellInterval if a positive delay is detected.
+    Evaluates both explicit enqueue timestamps and span boundary deltas with clock skew tolerance.
     """
     queue_name = extract_queue_name(producer_span, consumer_span)
 
-    # Method 1: Gap between producer span end time and consumer span start time
-    if producer_span is not None and consumer_span.start_time_ns > producer_span.end_time_ns:
-        dwell_ns = consumer_span.start_time_ns - producer_span.end_time_ns
-        dwell_ms = round(dwell_ns / 1_000_000.0, 2)
-        if dwell_ms > 0.0:
-            return DwellInterval(
-                producer_span_id=producer_span.span_id,
-                consumer_span_id=consumer_span.span_id,
-                queue_name=queue_name,
-                dwell_time_ms=dwell_ms,
-                start_time_ns=producer_span.end_time_ns,
-                end_time_ns=consumer_span.start_time_ns,
-            )
-
-    # Method 2: Enqueue timestamp attribute in consumer attributes
+    # Method 1: Priority on explicit enqueue timestamp attribute in consumer attributes
     enqueue_ts_ns = extract_enqueue_timestamp_ns(consumer_span.attributes)
-    if enqueue_ts_ns and consumer_span.start_time_ns > enqueue_ts_ns:
+    if enqueue_ts_ns and consumer_span.start_time_ns >= enqueue_ts_ns:
         dwell_ns = consumer_span.start_time_ns - enqueue_ts_ns
         dwell_ms = round(dwell_ns / 1_000_000.0, 2)
         if dwell_ms > 0.0:
@@ -101,5 +101,23 @@ def calculate_dwell_time(
                 start_time_ns=enqueue_ts_ns,
                 end_time_ns=consumer_span.start_time_ns,
             )
+
+    # Method 2: Gap between producer span end time and consumer span start time
+    if producer_span is not None:
+        skew_tolerance_ns = int(clock_skew_tolerance_ms * 1_000_000)
+        # Handle cases where consumer start is slightly before producer end due to minor clock drift
+        if consumer_span.start_time_ns + skew_tolerance_ns >= producer_span.end_time_ns:
+            raw_dwell_ns = consumer_span.start_time_ns - producer_span.end_time_ns
+            dwell_ns = max(0, raw_dwell_ns)
+            dwell_ms = round(dwell_ns / 1_000_000.0, 2)
+            if dwell_ms > 0.0 or raw_dwell_ns >= -skew_tolerance_ns:
+                return DwellInterval(
+                    producer_span_id=producer_span.span_id,
+                    consumer_span_id=consumer_span.span_id,
+                    queue_name=queue_name,
+                    dwell_time_ms=max(0.1, dwell_ms),
+                    start_time_ns=producer_span.end_time_ns,
+                    end_time_ns=consumer_span.start_time_ns,
+                )
 
     return None

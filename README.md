@@ -141,7 +141,22 @@ traceweaver demo --endpoint http://localhost:8080/v1/traces --rate 2.0 --count 2
 Inspect causal relationships and dwell times in any terminal session:
 
 ```bash
+# Standard ASCII waterfall table:
 traceweaver analyze <trace_id> --db-path traces.duckdb
+
+# Export Mermaid sequence diagram:
+traceweaver analyze <trace_id> --format mermaid
+
+# Raw JSON output for automation:
+traceweaver analyze <trace_id> --format json
+```
+
+### Comparing Traces (Regression Diff)
+
+Pinpoint latency regressions between two executions of a flow:
+
+```bash
+traceweaver diff <trace_id_baseline> <trace_id_comparison> --db-path traces.duckdb
 ```
 
 ### Launching the Terminal TUI
@@ -157,6 +172,7 @@ Keyboard shortcuts:
 * `r`: Refresh trace list
 * `/`: Filter traces by service name or status
 * `Enter`: Drill down into selected trace waterfall
+* `p`: Jump directly to critical path span
 * `Escape`: Return to trace list
 
 ## REST API
@@ -167,8 +183,11 @@ TraceWeaver provides HTTP endpoints for automated inspection and analytics:
 |---|---|---|
 | `/v1/traces` | POST | OTLP trace ingestion endpoint (JSON and Protobuf) |
 | `/api/v1/traces` | GET | List recent root traces with duration and error filters |
-| `/api/v1/traces/{trace_id}` | GET | Retrieve full causal DAG and dwell time breakdown for a trace |
-| `/api/v1/analytics/services` | GET | Aggregate latency percentiles, error rates, and dwell averages |
+| `/api/v1/traces/{trace_id}` | GET | Full causal DAG and dwell time breakdown for a trace |
+| `/api/v1/traces/{trace_id}/mermaid` | GET | Export Mermaid sequence diagram definition |
+| `/api/v1/diff` | GET | Compare two traces and calculate latency/dwell deltas |
+| `/api/v1/analytics/services` | GET | Latency percentiles, error rates, and dwell averages |
+| `/api/v1/analytics/overview` | GET | System-wide stored spans, trace counts, and error rate |
 | `/api/v1/ws/traces` | WS | Real-time WebSocket stream for incoming traces |
 | `/healthz` | GET | Health check endpoint |
 
