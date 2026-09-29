@@ -92,13 +92,17 @@ The database maintains three core tables:
 
 ### 3. Causal Correlation and Dwell Time Engine
 
-Distributed requests often branch across asynchronous boundaries where parent-child identifiers are either lost or explicitly separated. TraceWeaver resolves these connections using a two-pass correlation algorithm:
+Distributed requests often branch across asynchronous boundaries where parent-child identifiers are either lost or explicitly separated. TraceWeaver resolves these connections using a multi-pass correlation algorithm:
 
 1. **Hierarchy Pass**: Organizes spans by `parent_span_id` to build synchronous call trees.
 2. **Link Stitching Pass**: Traverses span links and messaging attributes to connect consumer spans with the exact producer span that enqueued the message.
-3. **Dwell Time Calculation**: Computes the elapsed duration between when an event was published to a queue or topic and when a consumer began processing it.
+3. **Dwell Time Calculation**: Computes the elapsed duration between when an event was published to a queue or topic and when a consumer began processing it, with clock-drift compensation.
+4. **Critical Path Analysis**: Identifies the primary end-to-end latency bottleneck through the causal DAG, factoring in both synchronous span execution times and asynchronous queue dwell delays.
+5. **Trace Regression Diff Engine (`engine/diff.py`)**: Compares baseline and candidate traces to isolate root causes of latency divergence, producing deltas for total duration, per-service execution, and queue dwell intervals.
+6. **Mermaid Exporter (`engine/mermaid.py`)**: Transforms the causal execution DAG into standard Mermaid sequence diagrams for incident post-mortems and architecture documentation.
 
 ### 4. User Interfaces
 
-* **Terminal User Interface (TUI)**: Uses Textual to render interactive screens. A scrolling trace table provides immediate sorting by duration, service count, and error flags. Selecting a trace opens a Gantt waterfall rendering span bars and highlighted queue dwell intervals using Unicode blocks.
-* **Web Dashboard**: An embedded FastAPI web interface serving static HTML and SVG without Node.js runtime dependencies. It connects to a WebSocket endpoint for live trace streaming and renders interactive Gantt charts with pan and zoom capabilities.
+* **Terminal User Interface (TUI)**: Uses Textual to render interactive screens. A scrolling trace table provides immediate sorting by duration, service count, and error flags. Selecting a trace opens a Gantt waterfall rendering span bars and highlighted queue dwell intervals using Unicode blocks. Pressing `p` navigates directly to the critical path bottleneck.
+* **CLI Analysis & Diff**: The `traceweaver analyze` command prints ASCII waterfalls, exports Mermaid sequence diagrams (`--format mermaid`), or outputs raw DAG JSON. The `traceweaver diff` command compares two traces and diagnoses latency regressions directly in stdout.
+* **Web Dashboard**: An embedded FastAPI web interface serving static HTML and SVG without Node.js runtime dependencies. It connects to a WebSocket endpoint for live trace streaming, renders interactive Gantt charts, provides an in-browser Trace Regression Diff modal, and supports one-click Mermaid sequence diagram export.
