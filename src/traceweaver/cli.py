@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from traceweaver import __version__
 from traceweaver.config import settings
 from traceweaver.demo import generate_demo_trace
 from traceweaver.engine.correlator import CausalNode, TraceCorrelator
@@ -31,6 +32,37 @@ app = typer.Typer(
     add_completion=False,
 )
 console = Console()
+
+
+def version_callback(value: bool) -> None:
+    """Callback for --version option."""
+    if value:
+        console.print(
+            f"[bold cyan]TraceWeaver[/bold cyan] version [bold green]{__version__}[/bold green]"
+        )
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: bool | None = typer.Option(
+        None,
+        "--version",
+        "-v",
+        help="Show TraceWeaver version and exit.",
+        callback=version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """Distributed trace correlator and causal event waterfall visualizer."""
+
+
+@app.command()
+def version() -> None:
+    """Show TraceWeaver version."""
+    console.print(
+        f"[bold cyan]TraceWeaver[/bold cyan] version [bold green]{__version__}[/bold green]"
+    )
 
 
 @app.command()

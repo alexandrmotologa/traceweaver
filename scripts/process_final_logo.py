@@ -1,6 +1,8 @@
-import os
 import base64
+import os
+
 from PIL import Image, ImageDraw
+
 
 def process_logo():
     src = r"C:\Users\alexander\.gemini\antigravity-ide\brain\045b334f-397d-46c6-b7b0-21cd830a547d\traceweaver_logo_concept_b_1789073683794.jpg"
@@ -45,13 +47,14 @@ def process_logo():
     with open(os.path.join(out_dir, "logo.png"), "rb") as f:
         b64 = base64.b64encode(f.read()).decode("ascii")
 
-    svg_content = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+    svg_content = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <image href="data:image/png;base64,{b64}" width="1024" height="1024" />
-</svg>'''
+</svg>"""
     with open(os.path.join(out_dir, "logo.svg"), "w", encoding="utf-8") as f:
         f.write(svg_content)
 
     print("All production assets generated successfully.")
+
 
 if __name__ == "__main__":
     process_logo()

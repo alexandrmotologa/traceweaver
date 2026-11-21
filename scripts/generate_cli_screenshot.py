@@ -1,12 +1,13 @@
 import io
 import os
-import subprocess
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from traceweaver.engine.correlator import TraceCorrelator, CausalNode
+from traceweaver.engine.correlator import CausalNode, TraceCorrelator
 from traceweaver.engine.store import TraceStore
+
 
 def generate_terminal_svg():
     store = TraceStore(db_path="traces.duckdb")
@@ -23,7 +24,9 @@ def generate_terminal_svg():
     console = Console(record=True, width=110, file=buffer, force_terminal=True)
 
     console.print()
-    console.print(f"[bold green]alexander@host[/]:[bold blue]~/traceweaver[/]$ traceweaver analyze {trace_id}")
+    console.print(
+        f"[bold green]alexander@host[/]:[bold blue]~/traceweaver[/]$ traceweaver analyze {trace_id}"
+    )
     console.print()
 
     console.print(
@@ -39,7 +42,11 @@ def generate_terminal_svg():
     )
     console.print()
 
-    table = Table(title="Causal Execution & Queue Dwell Waterfall", border_style="dim", header_style="bold cyan")
+    table = Table(
+        title="Causal Execution & Queue Dwell Waterfall",
+        border_style="dim",
+        header_style="bold cyan",
+    )
     table.add_column("Causal Hierarchy & Service", style="cyan", min_width=28)
     table.add_column("Operation", style="white", min_width=32)
     table.add_column("Duration", justify="right", min_width=12)
@@ -91,6 +98,7 @@ def generate_terminal_svg():
     console.save_svg(svg_path, title="TraceWeaver CLI - Causal Waterfall")
     print(f"Saved SVG to {svg_path}")
     store.close()
+
 
 if __name__ == "__main__":
     generate_terminal_svg()

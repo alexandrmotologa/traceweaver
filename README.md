@@ -20,6 +20,10 @@ TraceWeaver correlates distributed traces across asynchronous message boundaries
 
 ## Visual Tour
 
+<p align="center">
+  <img src="docs/images/traceweaver_demo.gif" alt="TraceWeaver Interactive Demo" width="100%" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+</p>
+
 ### Web Console & Causal Waterfall
 Live distributed trace stream with async broker dwell time metrics, Gantt timeline, and OpenTelemetry cross-boundary link inspector.
 
